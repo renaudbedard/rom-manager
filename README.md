@@ -3,6 +3,6 @@ An attempt at a ROM manager with metadata that allows you to clean up full ROM s
 
 ## Data Sources
 
- - https://auth.giantbomb.com/login/
+ - http://www.giantbomb.com/api/
  - https://www.igdb.com/api
  - http://wiki.thegamesdb.net/index.php/API_Introduction
