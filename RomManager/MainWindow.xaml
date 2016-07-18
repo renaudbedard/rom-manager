@@ -5,13 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:RomManager"
         mc:Ignorable="d"
-        Title="ROM Manager" Height="350" Width="525">
+        Title="ROM Manager" Height="720" Width="1280">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="56*"/>
             <ColumnDefinition Width="117*"/>
         </Grid.ColumnDefinitions>
-        <DataGrid x:Name="dataGrid" Grid.ColumnSpan="2"/>
-
+        <Image x:Name="image" Grid.Column="1" HorizontalAlignment="Right" Height="640" VerticalAlignment="Top" Width="454" Stretch="None"/>
     </Grid>
 </Window>
