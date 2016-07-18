@@ -5,12 +5,40 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:RomManager"
         mc:Ignorable="d"
-        Title="ROM Manager" Height="720" Width="1280">
-    <Grid>
+        Title="ROM Manager" Height="350" Width="525" Loaded="Window_Loaded">
+    <Window.Resources>
+        <DataTemplate DataType="{x:Type local:Game}">
+            <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6">
+                <!-- Drop Shadow -->
+                <Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="4"
+                        Background="#44000000">
+                    <Border.RenderTransform>
+                        <TranslateTransform X="5" Y="5" />
+                    </Border.RenderTransform>
+                    <Border.BitmapEffect>
+                        <BlurBitmapEffect Radius="8" />
+                    </Border.BitmapEffect>
+                </Border>
+                <!-- Image Template -->
+                <Border Padding="4" Background="White" BorderBrush="#22000000" BorderThickness="1">
+                    <Image Source="{Binding Cover.BitmapImage}" />
+                </Border>
+            </Grid>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid DataContext="{DynamicResource Games}">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="56*"/>
-            <ColumnDefinition Width="117*"/>
+            <ColumnDefinition Width="260*"/>
+            <ColumnDefinition Width="259*"/>
         </Grid.ColumnDefinitions>
-        <Image x:Name="image" Grid.Column="1" HorizontalAlignment="Right" Height="640" VerticalAlignment="Top" Width="454" Stretch="None"/>
+        <ListBox x:Name="listBox" ItemsSource="{Binding}"/>
+        <StackPanel Grid.Column="1">
+            <Label x:Name="NameHeader" Content="Name"/>
+            <Label x:Name="NameLabel" Content=""/>
+            <Label x:Name="CoverArtHeader" Content="Cover Art"/>
+            <Image x:Name="CoverArtImage" Height="100"/>
+        </StackPanel>
+
     </Grid>
 </Window>

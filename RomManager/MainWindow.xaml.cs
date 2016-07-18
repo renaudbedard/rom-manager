@@ -1,17 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using unirest_net.http;
 
 namespace RomManager
@@ -21,38 +13,49 @@ namespace RomManager
     /// </summary>
     public partial class MainWindow : Window
     {
+        GameLibrary Games;
+
         public MainWindow()
         {
             InitializeComponent();
-            TestAPI();
         }
 
-        public void TestAPI()
+        private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            var requestURI = string.Format(
-                "https://igdbcom-internet-game-database-v1.p.mashape.com/games/?search={0}&fields={1}&limit={2}",
-                Uri.EscapeDataString("a link to the past"), // search
-                Uri.EscapeDataString("*"), // fields
-                1); // limit
+            Games = (Application.Current.Resources["Games"] as ObjectDataProvider).Data as GameLibrary;
 
-            HttpResponse<Game[]> response = Unirest.get(requestURI)
+            var requestURI = string.Format(
+                            "https://igdbcom-internet-game-database-v1.p.mashape.com/games/?search={0}&fields={1}&limit={2}",
+                            Uri.EscapeDataString("a link to the past"), // search
+                            Uri.EscapeDataString("*"), // fields
+                            1); // limit
+
+            Task<HttpResponse<Game[]>> asyncResponse = Unirest.get(requestURI)
                 .header("X-Mashape-Key", "Xfb4BtFk3RmshL3HnA1fgXXPEyGEp16mndvjsntX7K4pclsD7h")
                 .header("Accept", "application/json")
-                .asJson<Game[]>();
+                .asJsonAsync<Game[]>();
 
-            var games = response.Body;
-            foreach (var game in games)
+            asyncResponse.ContinueWith(context =>
             {
-                // resolve cover image
-                if (game.Cover != null)
-                    game.Cover.BitmapImage = new BitmapImage(new Uri(string.Format("https://res.cloudinary.com/igdb/image/upload/t_{0}/{1}.jpg", "cover_big_2x", game.Cover.CloudinaryId)));
+                Parallel.ForEach(context.Result.Body, game =>
+                {
+                    // resolve cover image
+                    if (game.Cover != null)
+                    {
+                        var uri = string.Format("https://res.cloudinary.com/igdb/image/upload/t_{0}/{1}.jpg", "cover_big_2x", game.Cover.CloudinaryId);
+                        Dispatcher.Invoke(() => game.Cover.BitmapImage = new BitmapImage(new Uri(uri)));
+                    }
 
-                // resolve screenshots
-                foreach (var screenshot in game.Screenshots)
-                    screenshot.BitmapImage = new BitmapImage(new Uri(string.Format("https://res.cloudinary.com/igdb/image/upload/t_{0}/{1}.jpg", "screenshot_big", screenshot.CloudinaryId)));
-            }
+                    // resolve screenshots
+                    foreach (var screenshot in game.Screenshots)
+                    {
+                        var uri = string.Format("https://res.cloudinary.com/igdb/image/upload/t_{0}/{1}.jpg", "screenshot_big", screenshot.CloudinaryId);
+                        Dispatcher.Invoke(() => screenshot.BitmapImage = new BitmapImage(new Uri(uri)));
+                    }
 
-            image.Source = games[0].Cover.BitmapImage;
+                    Dispatcher.Invoke(() => Games.Add(game));
+                });
+            });
         }
     }
 }
