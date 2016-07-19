@@ -3,7 +3,5 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:RomManager"
              StartupUri="MainWindow.xaml">
-    <Application.Resources>
-        <ObjectDataProvider x:Key="Games" ObjectType="{x:Type local:GameLibrary}" />
-    </Application.Resources>
+    
 </Application>

@@ -1,18 +1,12 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
 
 namespace RomManager
 {
-    class Game
+    public class Game
     {
         public int Id { get; set; }
         public string Name { get; set; }
-        public string Url { get; set; }
         public string Summary { get; set; }
         public string Storyline { get; set; }
         public int Collection { get; set; }
@@ -23,7 +17,7 @@ namespace RomManager
         public Image Cover { get; set; }
     }
 
-    class Image
+    public class Image
     {
         [JsonProperty("cloudinary_id")]
         public string CloudinaryId { get; set; }

@@ -5,7 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:RomManager"
         mc:Ignorable="d"
-        Title="ROM Manager" Height="350" Width="525" Loaded="Window_Loaded">
+        Title="ROM Manager" Height="720" Width="1280">
+
+    <Window.DataContext>
+        <local:GameLibrary />
+    </Window.DataContext>
+    
     <Window.Resources>
         <DataTemplate DataType="{x:Type local:Game}">
             <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6">
@@ -25,20 +30,52 @@
                 </Border>
             </Grid>
         </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:Image}">
+            <Image Source="{Binding BitmapImage}" />
+        </DataTemplate>
+
+        <ControlTemplate x:Key="NoScroll">
+            <ItemsPresenter></ItemsPresenter>
+        </ControlTemplate>
     </Window.Resources>
 
-    <Grid DataContext="{DynamicResource Games}">
+    <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260*"/>
             <ColumnDefinition Width="259*"/>
         </Grid.ColumnDefinitions>
-        <ListBox x:Name="listBox" ItemsSource="{Binding}"/>
-        <StackPanel Grid.Column="1">
-            <Label x:Name="NameHeader" Content="Name"/>
-            <Label x:Name="NameLabel" Content=""/>
-            <Label x:Name="CoverArtHeader" Content="Cover Art"/>
-            <Image x:Name="CoverArtImage" Height="100"/>
-        </StackPanel>
 
+        <ScrollViewer Grid.Column="0">
+            <ListBox ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" />
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Column="1">
+            <StackPanel DataContext="{Binding CurrentGame}">
+                <Label Content="{Binding Name}" FontWeight="Bold" FontSize="18"/>
+
+                <Image Source="{Binding Cover.BitmapImage}"/>
+                
+                <Label Content="Summary" FontStyle="Italic"/>
+                <Label>
+                    <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Summary}" />
+                </Label>
+
+                <Label Content="Rating" FontStyle="Italic"/>
+                <Label>
+                    <TextBlock>
+                        <TextBlock.Text>
+                            <MultiBinding StringFormat="{}{0} ({1} ratings)">
+                                <Binding Path="Rating" />
+                                <Binding Path="RatingCount" />
+                            </MultiBinding>
+                        </TextBlock.Text>
+                    </TextBlock>
+                </Label>
+
+                <Label Content="Screenshots" FontStyle="Italic"/>
+                <ListBox Template="{StaticResource NoScroll}" ItemsSource="{Binding Screenshots}" />
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>
