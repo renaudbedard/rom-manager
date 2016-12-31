@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:diag="clr-namespace:System.Diagnostics;assembly=WindowsBase"
         xmlns:local="clr-namespace:RomManager"
         mc:Ignorable="d"
         Title="ROM Manager" Height="720" Width="1280">
@@ -10,7 +11,7 @@
     <Window.DataContext>
         <local:GameLibrary />
     </Window.DataContext>
-    
+
     <Window.Resources>
         <DataTemplate DataType="{x:Type local:Game}">
             <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6">
@@ -26,14 +27,16 @@
                 </Border>
                 <!-- Image Template -->
                 <Border Padding="4" Background="White" BorderBrush="#22000000" BorderThickness="1">
-                    <Image Source="{Binding Cover.BitmapImage}" />
+                    <Image Source="{Binding FrontCover}" Height="256" />
                 </Border>
             </Grid>
         </DataTemplate>
 
+        <!--
         <DataTemplate DataType="{x:Type local:Image}">
             <Image Source="{Binding BitmapImage}" />
         </DataTemplate>
+        -->
 
         <ControlTemplate x:Key="NoScroll">
             <ItemsPresenter></ItemsPresenter>
@@ -41,41 +44,61 @@
     </Window.Resources>
 
     <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="260*"/>
-            <ColumnDefinition Width="259*"/>
-        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="150*" />
+        </Grid.RowDefinitions>
 
-        <ScrollViewer Grid.Column="0">
-            <ListBox ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" />
-        </ScrollViewer>
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <Label Content="Current folder :" VerticalAlignment="Center" FontWeight="Bold" />
+            <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
+            <Button Name="BrowseButton" Content="Browse" Margin="5,7" Padding="10,0,10,0" Click="BrowseButton_Click" />
+            <Button Name="AnalyzeButton" IsEnabled="{Binding HasFolderPath}"  Content="Analyze" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
+        </StackPanel>
 
-        <ScrollViewer Grid.Column="1">
-            <StackPanel DataContext="{Binding CurrentGame}">
-                <Label Content="{Binding Name}" FontWeight="Bold" FontSize="18"/>
+        <Grid Grid.Row="1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260*"/>
+                    <ColumnDefinition Width="259*"/>
+                </Grid.ColumnDefinitions>
+                <ScrollViewer Grid.Column="0">
+                    <ListBox ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" />
+                </ScrollViewer>
 
-                <Image Source="{Binding Cover.BitmapImage}"/>
-                
-                <Label Content="Summary" FontStyle="Italic"/>
-                <Label>
-                    <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Summary}" />
-                </Label>
+                <ScrollViewer Grid.Column="1">
+                    <StackPanel DataContext="{Binding CurrentGame}">
+                        <Label Content="{Binding Title}" FontWeight="Bold" FontSize="18"/>
 
-                <Label Content="Rating" FontStyle="Italic"/>
-                <Label>
-                    <TextBlock>
-                        <TextBlock.Text>
-                            <MultiBinding StringFormat="{}{0} ({1} ratings)">
-                                <Binding Path="Rating" />
-                                <Binding Path="RatingCount" />
-                            </MultiBinding>
-                        </TextBlock.Text>
-                    </TextBlock>
-                </Label>
+                        <Image Source="{Binding FrontCover}"/>
 
-                <Label Content="Screenshots" FontStyle="Italic"/>
-                <ListBox Template="{StaticResource NoScroll}" ItemsSource="{Binding Screenshots}" />
-            </StackPanel>
-        </ScrollViewer>
+                        <Label Content="Description" FontStyle="Italic"/>
+                        <Label>
+                            <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" />
+                        </Label>
+
+                        <!--
+                        <Label Content="Rating" FontStyle="Italic"/>
+                        <Label>
+                            <TextBlock>
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{0} ({1} ratings)">
+                                        <Binding Path="Rating" />
+                                        <Binding Path="RatingCount" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                            </TextBlock>
+                        </Label>
+                        -->
+
+                        <Label Content="Front Cover" FontStyle="Italic"/>
+                        <Image Source="{Binding FrontCover}" />
+
+                        <Label Content="Back Cover" FontStyle="Italic"/>
+                        <Image Source="{Binding BackCover}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
     </Grid>
 </Window>

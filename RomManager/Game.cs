@@ -1,30 +1,21 @@
-﻿using Newtonsoft.Json;
+﻿using System;
 using System.Windows.Media.Imaging;
 
 namespace RomManager
 {
     public class Game
     {
-        public int Id { get; set; }
-        public string Name { get; set; }
-        public string Summary { get; set; }
-        public string Storyline { get; set; }
-        public int Collection { get; set; }
-        public float Rating { get; set; }
-        [JsonProperty("rating_count")]
-        public int RatingCount { get; set; }
-        public Image[] Screenshots { get; set; }
-        public Image Cover { get; set; }
-    }
+        public string FilePath;
+        public string Title;
+        public string Region;
+        public string SystemName;
+        public string Description;
+        public string Developer;
+        public string Publisher;
+        public string[] Genre;
+        public string ReleaseDate;
 
-    public class Image
-    {
-        [JsonProperty("cloudinary_id")]
-        public string CloudinaryId { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
-
-        [JsonIgnore]
-        public BitmapImage BitmapImage { get; set; }
+        public BitmapImage FrontCover { get; set; }
+        public BitmapImage BackCover { get; set; }
     }
 }
