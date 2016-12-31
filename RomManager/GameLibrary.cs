@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -6,7 +7,10 @@ using System.Data.SQLite;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 
 namespace RomManager
 {
@@ -15,7 +19,17 @@ namespace RomManager
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ObservableCollection<Game> Games { get; private set; } = new ObservableCollection<Game>();
-        public Game CurrentGame { get; set; }
+
+        Game currentGame;
+        public Game CurrentGame
+        {
+            get { return currentGame; }
+            set
+            {
+                currentGame = value;
+                PropertyChanged(this, new PropertyChangedEventArgs("CurrentGame"));
+            }
+        }
 
         string folderPath;
         public string FolderPath
@@ -34,112 +48,167 @@ namespace RomManager
             get { return FolderPath != null; }
         }
 
+        int thumbnailSize = 256;
+        public int ThumbnailSize
+        {
+            get { return thumbnailSize; }
+            set
+            {
+                thumbnailSize = value;
+                PropertyChanged(this, new PropertyChangedEventArgs("ThumbnailSize"));
+            }
+        }
+
         public void Analyze()
         {
+            var pathToDb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
+
+            var hashedFiles = new ConcurrentQueue<Tuple<string, string>>();
+            var matchedRoms = new ConcurrentQueue<Tuple<string, long?>>();
+
             // hash files
-            var hashedFiles = new Dictionary<string, string>();
             var di = new DirectoryInfo(folderPath);
-            var sb = new StringBuilder();
-            using (var sha1 = SHA1.Create())
+            var fileHashed = new ManualResetEventSlim();
+            bool allFilesHashed = false;
+            Task.Run(() =>
             {
-                foreach (var file in di.GetFiles())
+                Parallel.ForEach(di.GetFiles(), file =>
                 {
-                    sb.Clear();
-
                     var filePath = file.FullName;
-                    var hash = sha1.ComputeHash(File.OpenRead(filePath));
 
+                    byte[] hash;
+                    using (var sha1 = SHA1.Create())
+                        hash = sha1.ComputeHash(File.OpenRead(filePath));
+
+                    var sb = new StringBuilder(hash.Length * 2);
                     foreach (byte b in hash)
                         sb.Append(b.ToString("X2"));
-                    hashedFiles[filePath] = sb.ToString();
-                }
-            }
 
-            // open database
-            var pathToDb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
-            using (var connection = new SQLiteConnection($"Data Source={pathToDb}; Version=3;"))
+                    hashedFiles.Enqueue(new Tuple<string, string>(filePath, sb.ToString()));
+                    fileHashed.Set();
+                });
+
+                allFilesHashed = true;
+                fileHashed.Set();
+            });
+
+            // match roms in database
+            bool allRomsMatched = false;
+            var romMatched = new ManualResetEventSlim();
+            Task.Run(() =>
             {
-                connection.Open();
-                var command = connection.CreateCommand();
-
-                // match roms in database
-                var romIds = new Dictionary<string, long?>();
-                foreach (var kvp in hashedFiles)
+                using (var connection = new SQLiteConnection($"Data Source={pathToDb}; Version=3;"))
                 {
-                    command.CommandText = $"SELECT romID FROM ROMs WHERE romHashSHA1 = '{kvp.Value}' LIMIT 1";
-                    var romId = command.ExecuteScalar();
-                    if (romId != null)
-                        romIds[kvp.Key] = (long)romId;
-                    else
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
                     {
-                        var extensionlessFileName = Path.GetFileNameWithoutExtension(kvp.Key);
-                        command.CommandText = $"SELECT romID FROM ROMs WHERE romExtensionlessFileName = '{extensionlessFileName}' LIMIT 1";
-                        romId = command.ExecuteScalar();
-                        if (romId != null)
-                            romIds[kvp.Key] = (long)romId;
-                        else
+                        while (!allFilesHashed)
                         {
-                            romIds[kvp.Key] = null;
-                            Console.WriteLine($"Could not find match for '{extensionlessFileName}'");
-                        }
-                    }
-                }
+                            fileHashed.Wait();
 
-                // get metadata
-                foreach (var rom in romIds)
-                {
-                    var game = new Game { FilePath = rom.Key };
-                    bool needsAdd = true;
-
-                    if (rom.Value.HasValue)
-                    {
-                        command.CommandText = $"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, releaseCoverBack, releaseDescription, releaseDeveloper, releasePublisher, releaseGenre, releaseDate FROM RELEASES WHERE romID = '{rom.Value.Value}' LIMIT 1";
-                        using (var reader = command.ExecuteReader())
-                        {
-                            if (reader.HasRows)
+                            Tuple<string, string> pair;
+                            while (hashedFiles.TryDequeue(out pair))
                             {
-                                reader.Read();
+                                command.CommandText = $"SELECT romID FROM ROMs WHERE romHashSHA1 = '{pair.Item2}' LIMIT 1";
+                                var romId = command.ExecuteScalar();
 
-                                var releaseId = reader.GetInt64(0);
-                                game.Title = GetNullable<string>(reader.GetValue(1));
-                                game.SystemName = GetNullable<string>(reader.GetValue(2));
-                                game.Description = GetNullable<string>(reader.GetValue(5));
-                                game.Developer = GetNullable<string>(reader.GetValue(6));
-                                game.Publisher = GetNullable<string>(reader.GetValue(7));
-                                game.Genre = GetNullable<string>(reader.GetValue(8))?.Split(',');
-                                game.ReleaseDate = GetNullable<string>(reader.GetValue(9));
-
-                                game.FrontCover = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
-                                game.BackCover = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
-
-                                if (game.FrontCover.IsDownloading)
+                                if (romId != null)
+                                    matchedRoms.Enqueue(new Tuple<string, long?>(pair.Item1, (long)romId));
+                                else
                                 {
-                                    game.FrontCover.DownloadCompleted += (_, __) => Games.Add(game);
-                                    needsAdd = false;
+                                    var extensionlessFileName = Path.GetFileNameWithoutExtension(pair.Item1);
+                                    command.CommandText = $"SELECT romID FROM ROMs WHERE romExtensionlessFileName = '{extensionlessFileName}' LIMIT 1";
+                                    romId = command.ExecuteScalar();
+
+                                    if (romId != null)
+                                        matchedRoms.Enqueue(new Tuple<string, long?>(pair.Item1, (long)romId));
+                                    else
+                                    {
+                                        matchedRoms.Enqueue(new Tuple<string, long?>(pair.Item1, null));
+                                        Console.WriteLine($"Could not find match for '{extensionlessFileName}'");
+                                    }
                                 }
+                                romMatched.Set();
                             }
                         }
                     }
-
-                    if (needsAdd)
-                        Games.Add(game);
+                    connection.Close();
                 }
 
-                // close database
-                connection.Close();
-            }
+                allRomsMatched = true;
+                romMatched.Set();
+            });
+
+            var dispatcher = Dispatcher.CurrentDispatcher;
+
+            // get metadata
+            Task.Run(() =>
+            {
+                using (var connection = new SQLiteConnection($"Data Source={pathToDb}; Version=3;"))
+                {
+                    connection.Open();
+                    using (var command = connection.CreateCommand())
+                    {
+                        while (!allRomsMatched)
+                        {
+                            romMatched.Wait();
+
+                            Tuple<string, long?> pair;
+                            while (matchedRoms.TryDequeue(out pair))
+                            {
+                                var game = new Game { FilePath = pair.Item1 };
+
+                                if (pair.Item2.HasValue)
+                                {
+                                    command.CommandText = $"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, releaseCoverBack, releaseDescription, releaseDeveloper, releasePublisher, releaseGenre, releaseDate FROM RELEASES WHERE romID = '{pair.Item2.Value}' LIMIT 1";
+                                    using (var reader = command.ExecuteReader())
+                                    {
+                                        if (reader.HasRows)
+                                        {
+                                            reader.Read();
+
+                                            var releaseId = reader.GetInt64(0);
+                                            game.Title = GetNullable<string>(reader.GetValue(1));
+                                            game.SystemName = GetNullable<string>(reader.GetValue(2));
+                                            game.Description = GetNullable<string>(reader.GetValue(5));
+                                            game.Developer = GetNullable<string>(reader.GetValue(6));
+                                            game.Publisher = GetNullable<string>(reader.GetValue(7));
+                                            game.Genre = GetNullable<string>(reader.GetValue(8))?.Split(',');
+                                            game.ReleaseDate = GetNullable<string>(reader.GetValue(9));
+
+                                            game.FrontCoverUri = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
+                                            game.BackCoverUri = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
+                                        }
+                                    }
+                                }
+
+                                // make sure we have fallback images
+                                if (game.FrontCoverUri == null)
+                                    game.FrontCoverUri = TryGetCachedImage(null, "FrontCover", 0);
+                                if (game.BackCoverUri == null)
+                                    game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0);
+
+                                dispatcher.InvokeAsync(() =>
+                                {
+                                    game.FrontCover = ExpandImage(game.FrontCoverUri, game.FrontCoverCachePath);
+                                    game.BackCover = ExpandImage(game.BackCoverUri, game.BackCoverCachePath);
+
+                                    Games.Add(game);
+                                });
+                            }
+                        }
+                    }
+                    connection.Close();
+                }
+            });
         }
 
         static T GetNullable<T>(object value) where T : class
         {
             return value is DBNull ? null : (T) value;
         }
-        static T? MakeNullable<T>(object value) where T : struct
-        {
-            return value is DBNull ? null : (T?)(T)value;
-        }
 
-        static BitmapImage TryGetCachedImage(string url, string type, long releaseId)
+        static Uri TryGetCachedImage(string url, string type, long releaseId)
         {
             var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomManager");
             if (!Directory.Exists(appData))
@@ -153,8 +222,6 @@ namespace RomManager
             if (!Directory.Exists(byType))
                 Directory.CreateDirectory(byType);
 
-            BitmapImage image;
-
             string imageFilePath;
             if (url == null)
             {
@@ -165,28 +232,36 @@ namespace RomManager
                 imageFilePath = Path.Combine(byType, releaseId.ToString()) + url.Substring(url.LastIndexOf('.'));
 
             if (!File.Exists(imageFilePath))
+                return new Uri(url);
+            else
+                return new Uri(imageFilePath);
+        }
+
+        static BitmapImage ExpandImage(Uri uri, string cachePath)
+        {
+            if (uri.IsFile)
+                return new BitmapImage(uri);
+            else
             {
-                image = new BitmapImage();
+                var image = new BitmapImage();
                 image.BeginInit();
-                image.UriSource = new Uri(url);
-                image.DecodePixelHeight = 256;
+                {
+                    image.UriSource = uri;
+                    image.DecodePixelHeight = 512;
+
+                    image.DownloadCompleted += (_, __) =>
+                    {
+                        JpegBitmapEncoder encoder = new JpegBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(image));
+
+                        using (var filestream = new FileStream(cachePath, FileMode.Create))
+                            encoder.Save(filestream);
+                    };
+                }
                 image.EndInit();
 
-                image.DownloadCompleted += (_, __) => 
-                {
-                    JpegBitmapEncoder encoder = new JpegBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(image));
-
-                    using (var filestream = new FileStream(imageFilePath, FileMode.Create))
-                    {
-                        encoder.Save(filestream);
-                    }
-                };
+                return image;
             }
-            else
-                image = new BitmapImage(new Uri(imageFilePath));
-
-            return image;
         }
     }
 }

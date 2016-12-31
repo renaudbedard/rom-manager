@@ -1,11 +1,7 @@
 ﻿<Window x:Class="RomManager.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:diag="clr-namespace:System.Diagnostics;assembly=WindowsBase"
         xmlns:local="clr-namespace:RomManager"
-        mc:Ignorable="d"
         Title="ROM Manager" Height="720" Width="1280">
 
     <Window.DataContext>
@@ -27,16 +23,11 @@
                 </Border>
                 <!-- Image Template -->
                 <Border Padding="4" Background="White" BorderBrush="#22000000" BorderThickness="1">
-                    <Image Source="{Binding FrontCover}" Height="256" />
+                    <Image Source="{Binding FrontCover}" 
+                           Height="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
                 </Border>
             </Grid>
         </DataTemplate>
-
-        <!--
-        <DataTemplate DataType="{x:Type local:Image}">
-            <Image Source="{Binding BitmapImage}" />
-        </DataTemplate>
-        -->
 
         <ControlTemplate x:Key="NoScroll">
             <ItemsPresenter></ItemsPresenter>
@@ -54,23 +45,37 @@
             <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
             <Button Name="BrowseButton" Content="Browse" Margin="5,7" Padding="10,0,10,0" Click="BrowseButton_Click" />
             <Button Name="AnalyzeButton" IsEnabled="{Binding HasFolderPath}"  Content="Analyze" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
+            <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="512" Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
         </StackPanel>
 
         <Grid Grid.Row="1">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260*"/>
-                    <ColumnDefinition Width="259*"/>
+                    <ColumnDefinition Width="635*"/>
+                    <ColumnDefinition Width="5" />
+                    <ColumnDefinition Width="96*"/>
+                    <ColumnDefinition Width="537*"/>
                 </Grid.ColumnDefinitions>
                 <ScrollViewer Grid.Column="0">
-                    <ListBox ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" />
+                    <ListBox Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                    </ListBox>
                 </ScrollViewer>
 
-                <ScrollViewer Grid.Column="1">
-                    <StackPanel DataContext="{Binding CurrentGame}">
-                        <Label Content="{Binding Title}" FontWeight="Bold" FontSize="18"/>
+                <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" />
 
-                        <Image Source="{Binding FrontCover}"/>
+                <ScrollViewer Grid.Column="2" Grid.ColumnSpan="2">
+                    <StackPanel DataContext="{Binding CurrentGame}">
+                        <Label Content="{Binding Title}" FontWeight="Bold" FontSize="16"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="{Binding FrontCover}" Height="512" Margin="5"/>
+                            <Image Source="{Binding BackCover}" Height="512"/>
+                        </StackPanel>
 
                         <Label Content="Description" FontStyle="Italic"/>
                         <Label>
@@ -90,12 +95,6 @@
                             </TextBlock>
                         </Label>
                         -->
-
-                        <Label Content="Front Cover" FontStyle="Italic"/>
-                        <Image Source="{Binding FrontCover}" />
-
-                        <Label Content="Back Cover" FontStyle="Italic"/>
-                        <Image Source="{Binding BackCover}" />
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

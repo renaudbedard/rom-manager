@@ -32,6 +32,7 @@ namespace RomManager
             {
                 var library = DataContext as GameLibrary;
                 library.FolderPath = dialog.FileName;
+                library.Analyze();
             }
         }
 
