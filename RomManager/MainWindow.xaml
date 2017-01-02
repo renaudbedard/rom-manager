@@ -44,7 +44,7 @@
             <Label Content="Current folder :" VerticalAlignment="Center" FontWeight="Bold" />
             <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
             <Button Name="BrowseButton" Content="Browse" Margin="5,7" Padding="10,0,10,0" Click="BrowseButton_Click" />
-            <Button Name="AnalyzeButton" IsEnabled="{Binding HasFolderPath}"  Content="Analyze" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
+            <Button Name="AnalyzeStopButton" IsEnabled="{Binding HasFolderPath}" Content="{Binding AnalyzeStopCaption}" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
             <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="512" Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
         </StackPanel>
 

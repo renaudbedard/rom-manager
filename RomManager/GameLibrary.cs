@@ -43,6 +43,11 @@ namespace RomManager
             }
         }
 
+        public string AnalyzeStopCaption
+        {
+            get { return analyzing ? "Stop" : "Analyze"; }
+        }
+
         public bool HasFolderPath
         {
             get { return FolderPath != null; }
@@ -59,9 +64,11 @@ namespace RomManager
             }
         }
 
+        bool analyzing;
         public void Analyze()
         {
-            var pathToDb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
+            analyzing = true;
+            PropertyChanged(this, new PropertyChangedEventArgs("AnalyzeStopCaption"));
 
             var hashedFiles = new ConcurrentQueue<Tuple<string, string>>();
             var matchedRoms = new ConcurrentQueue<Tuple<string, long?>>();
@@ -91,6 +98,8 @@ namespace RomManager
                 allFilesHashed = true;
                 fileHashed.Set();
             });
+
+            var pathToDb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
 
             // match roms in database
             bool allRomsMatched = false;
@@ -176,17 +185,23 @@ namespace RomManager
                                             game.Genre = GetNullable<string>(reader.GetValue(8))?.Split(',');
                                             game.ReleaseDate = GetNullable<string>(reader.GetValue(9));
 
-                                            game.FrontCoverUri = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
-                                            game.BackCoverUri = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
+                                            var frontCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
+                                            game.FrontCoverUri = frontCoverUris.Item1;
+                                            game.FrontCoverCachePath = frontCoverUris.Item2;
+
+
+                                            var backCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
+                                            game.BackCoverUri = backCoverUris.Item1;
+                                            game.BackCoverCachePath = backCoverUris.Item2;
                                         }
                                     }
                                 }
 
                                 // make sure we have fallback images
                                 if (game.FrontCoverUri == null)
-                                    game.FrontCoverUri = TryGetCachedImage(null, "FrontCover", 0);
+                                    game.FrontCoverUri = TryGetCachedImage(null, "FrontCover", 0).Item1;
                                 if (game.BackCoverUri == null)
-                                    game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0);
+                                    game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0).Item1;
 
                                 dispatcher.InvokeAsync(() =>
                                 {
@@ -199,6 +214,9 @@ namespace RomManager
                         }
                     }
                     connection.Close();
+
+                    analyzing = false;
+                    PropertyChanged(this, new PropertyChangedEventArgs("AnalyzeStopCaption"));
                 }
             });
         }
@@ -208,7 +226,7 @@ namespace RomManager
             return value is DBNull ? null : (T) value;
         }
 
-        static Uri TryGetCachedImage(string url, string type, long releaseId)
+        static Tuple<Uri, string> TryGetCachedImage(string url, string type, long releaseId)
         {
             var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomManager");
             if (!Directory.Exists(appData))
@@ -232,9 +250,9 @@ namespace RomManager
                 imageFilePath = Path.Combine(byType, releaseId.ToString()) + url.Substring(url.LastIndexOf('.'));
 
             if (!File.Exists(imageFilePath))
-                return new Uri(url);
+                return new Tuple<Uri, string>(new Uri(url), imageFilePath);
             else
-                return new Uri(imageFilePath);
+                return new Tuple<Uri, string>(new Uri(imageFilePath), null);
         }
 
         static BitmapImage ExpandImage(Uri uri, string cachePath)
