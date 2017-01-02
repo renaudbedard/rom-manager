@@ -10,23 +10,11 @@
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type local:Game}">
-            <Grid VerticalAlignment="Center" HorizontalAlignment="Center" Margin="6">
-                <!-- Drop Shadow -->
-                <Border HorizontalAlignment="Stretch" VerticalAlignment="Stretch" CornerRadius="4"
-                        Background="#44000000">
-                    <Border.RenderTransform>
-                        <TranslateTransform X="5" Y="5" />
-                    </Border.RenderTransform>
-                    <Border.BitmapEffect>
-                        <BlurBitmapEffect Radius="8" />
-                    </Border.BitmapEffect>
-                </Border>
-                <!-- Image Template -->
-                <Border Padding="4" Background="White" BorderBrush="#22000000" BorderThickness="1">
-                    <Image Source="{Binding FrontCover}" 
-                           Height="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
-                </Border>
-            </Grid>
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailMarginSize}">
+                <Image Source="{Binding FrontCover}" 
+                       Width="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
+                <TextBlock TextWrapping="WrapWithOverflow" TextAlignment="Center" HorizontalAlignment="Center" Text="{Binding Title}" FontWeight="Bold" MaxWidth="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" MinWidth="64" />
+            </StackPanel>
         </DataTemplate>
 
         <ControlTemplate x:Key="NoScroll">
@@ -45,7 +33,7 @@
             <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
             <Button Name="BrowseButton" Content="Browse" Margin="5,7" Padding="10,0,10,0" Click="BrowseButton_Click" />
             <Button Name="AnalyzeStopButton" IsEnabled="{Binding HasFolderPath}" Content="{Binding AnalyzeStopCaption}" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
-            <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="512" Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
+            <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="256" Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -57,7 +45,7 @@
                     <ColumnDefinition Width="537*"/>
                 </Grid.ColumnDefinitions>
                 <ScrollViewer Grid.Column="0">
-                    <ListBox Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Background="Black">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal"/>
@@ -72,14 +60,17 @@
                     <StackPanel DataContext="{Binding CurrentGame}">
                         <Label Content="{Binding Title}" FontWeight="Bold" FontSize="16"/>
 
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="{Binding FrontCover}" Height="512" Margin="5"/>
-                            <Image Source="{Binding BackCover}" Height="512"/>
-                        </StackPanel>
+                        <Grid Height="256">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="256*" />
+                                <ColumnDefinition Width="256*" />
+                            </Grid.ColumnDefinitions>
+                            <Image Source="{Binding FrontCover}" Grid.Column="0"/>
+                            <Image Source="{Binding BackCover}" Grid.Column="1" />
+                        </Grid>
 
-                        <Label Content="Description" FontStyle="Italic"/>
                         <Label>
-                            <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" />
+                            <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" MaxWidth="512" />
                         </Label>
 
                         <!--

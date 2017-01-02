@@ -53,7 +53,7 @@ namespace RomManager
             get { return FolderPath != null; }
         }
 
-        int thumbnailSize = 256;
+        int thumbnailSize = 128;
         public int ThumbnailSize
         {
             get { return thumbnailSize; }
@@ -61,7 +61,13 @@ namespace RomManager
             {
                 thumbnailSize = value;
                 PropertyChanged(this, new PropertyChangedEventArgs("ThumbnailSize"));
+                PropertyChanged(this, new PropertyChangedEventArgs("ThumbnailMarginSize"));
             }
+        }
+
+        public int ThumbnailMarginSize
+        {
+            get { return thumbnailSize / 42; } 
         }
 
         bool analyzing;
