@@ -10,10 +10,13 @@
 
     <Window.Resources>
         <DataTemplate DataType="{x:Type local:Game}">
-            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailMarginSize}">
+            <StackPanel Orientation="Vertical" VerticalAlignment="Center" HorizontalAlignment="Center" 
+                        Margin="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailMarginSize}">
                 <Image Source="{Binding FrontCover}" 
                        Width="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
-                <TextBlock TextWrapping="WrapWithOverflow" TextAlignment="Center" HorizontalAlignment="Center" Text="{Binding Title}" FontWeight="Bold" MaxWidth="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" MinWidth="64" />
+                <TextBlock TextWrapping="WrapWithOverflow" TextAlignment="Center" HorizontalAlignment="Center" 
+                           Text="{Binding Title}" FontWeight="Bold" MinWidth="64"
+                           MaxWidth="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
             </StackPanel>
         </DataTemplate>
 
@@ -30,10 +33,13 @@
 
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <Label Content="Current folder :" VerticalAlignment="Center" FontWeight="Bold" />
-            <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
+            <Label Content="{Binding FolderPath, TargetNullValue='(none)'}" FontFamily="Consolas" VerticalAlignment="Center" 
+                   Height="26" Padding="0,7,0,0" Margin="0,7,5,7" />
             <Button Name="BrowseButton" Content="Browse" Margin="5,7" Padding="10,0,10,0" Click="BrowseButton_Click" />
-            <Button Name="AnalyzeStopButton" IsEnabled="{Binding HasFolderPath}" Content="{Binding AnalyzeStopCaption}" Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
-            <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="256" Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
+            <Button Name="AnalyzeStopButton" IsEnabled="{Binding HasFolderPath}" Content="{Binding AnalyzeStopCaption}"
+                    Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
+            <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="256" 
+                    Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
         </StackPanel>
 
         <Grid Grid.Row="1">
@@ -44,8 +50,10 @@
                     <ColumnDefinition Width="96*"/>
                     <ColumnDefinition Width="537*"/>
                 </Grid.ColumnDefinitions>
+                
                 <ScrollViewer Grid.Column="0">
-                    <ListBox Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" Background="Black">
+                    <ListBox Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" 
+                             SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal"/>
@@ -60,32 +68,18 @@
                     <StackPanel DataContext="{Binding CurrentGame}">
                         <Label Content="{Binding Title}" FontWeight="Bold" FontSize="16"/>
 
-                        <Grid Height="256">
+                        <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="256*" />
                                 <ColumnDefinition Width="256*" />
                             </Grid.ColumnDefinitions>
-                            <Image Source="{Binding FrontCover}" Grid.Column="0"/>
+                            <Image Source="{Binding FrontCover}" Grid.Column="0" VerticalAlignment="Stretch"/>
                             <Image Source="{Binding BackCover}" Grid.Column="1" />
                         </Grid>
 
                         <Label>
-                            <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" MaxWidth="512" />
+                            <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" />
                         </Label>
-
-                        <!--
-                        <Label Content="Rating" FontStyle="Italic"/>
-                        <Label>
-                            <TextBlock>
-                                <TextBlock.Text>
-                                    <MultiBinding StringFormat="{}{0} ({1} ratings)">
-                                        <Binding Path="Rating" />
-                                        <Binding Path="RatingCount" />
-                                    </MultiBinding>
-                                </TextBlock.Text>
-                            </TextBlock>
-                        </Label>
-                        -->
                     </StackPanel>
                 </ScrollViewer>
             </Grid>

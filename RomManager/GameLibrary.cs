@@ -71,9 +71,20 @@ namespace RomManager
         }
 
         bool analyzing;
-        public void Analyze()
+        bool cancelRequested;
+        public void ToggleAnalyze()
         {
+            if (analyzing)
+            {
+                cancelRequested = true;
+                return;
+            }
+
+            Games.Clear();
+
+            cancelRequested = false;
             analyzing = true;
+
             PropertyChanged(this, new PropertyChangedEventArgs("AnalyzeStopCaption"));
 
             var hashedFiles = new ConcurrentQueue<Tuple<string, string>>();
@@ -85,7 +96,7 @@ namespace RomManager
             bool allFilesHashed = false;
             Task.Run(() =>
             {
-                Parallel.ForEach(di.GetFiles(), file =>
+                Parallel.ForEach(di.GetFiles(), (file, parallelLoopState) =>
                 {
                     var filePath = file.FullName;
 
@@ -99,6 +110,9 @@ namespace RomManager
 
                     hashedFiles.Enqueue(new Tuple<string, string>(filePath, sb.ToString()));
                     fileHashed.Set();
+
+                    if (cancelRequested)
+                        parallelLoopState.Stop();
                 });
 
                 allFilesHashed = true;
@@ -120,6 +134,9 @@ namespace RomManager
                         while (!allFilesHashed)
                         {
                             fileHashed.Wait();
+
+                            if (cancelRequested)
+                                break;
 
                             Tuple<string, string> pair;
                             while (hashedFiles.TryDequeue(out pair))
@@ -168,6 +185,9 @@ namespace RomManager
                         {
                             romMatched.Wait();
 
+                            if (cancelRequested)
+                                break;
+
                             Tuple<string, long?> pair;
                             while (matchedRoms.TryDequeue(out pair))
                             {
@@ -195,7 +215,6 @@ namespace RomManager
                                             game.FrontCoverUri = frontCoverUris.Item1;
                                             game.FrontCoverCachePath = frontCoverUris.Item2;
 
-
                                             var backCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
                                             game.BackCoverUri = backCoverUris.Item1;
                                             game.BackCoverCachePath = backCoverUris.Item2;
@@ -203,11 +222,14 @@ namespace RomManager
                                     }
                                 }
 
-                                // make sure we have fallback images
-                                if (game.FrontCoverUri == null)
+                                // fallback for non-matched roms
+                                if (game.Title == null)
+                                {
+                                    game.Title = Path.GetFileName(game.FilePath);
+                                    game.Description = "No information found.";
                                     game.FrontCoverUri = TryGetCachedImage(null, "FrontCover", 0).Item1;
-                                if (game.BackCoverUri == null)
                                     game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0).Item1;
+                                }
 
                                 dispatcher.InvokeAsync(() =>
                                 {
@@ -216,6 +238,9 @@ namespace RomManager
 
                                     Games.Add(game);
                                 });
+
+                                if (cancelRequested)
+                                    break;
                             }
                         }
                     }

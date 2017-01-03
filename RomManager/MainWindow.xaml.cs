@@ -32,14 +32,14 @@ namespace RomManager
             {
                 var library = DataContext as GameLibrary;
                 library.FolderPath = dialog.FileName;
-                library.Analyze();
+                library.ToggleAnalyze();
             }
         }
 
         void AnalyzeButton_Click(object sender, RoutedEventArgs e)
         {
             var library = DataContext as GameLibrary;
-            library.Analyze();
+            library.ToggleAnalyze();
         }
     }
 }
