@@ -208,7 +208,7 @@ namespace RomManager
                                             game.Description = GetNullable<string>(reader.GetValue(5));
                                             game.Developer = GetNullable<string>(reader.GetValue(6));
                                             game.Publisher = GetNullable<string>(reader.GetValue(7));
-                                            game.Genre = GetNullable<string>(reader.GetValue(8))?.Split(',');
+                                            game.Genres = GetNullable<string>(reader.GetValue(8))?.Replace(",", ", ");
                                             game.ReleaseDate = GetNullable<string>(reader.GetValue(9));
 
                                             var frontCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
@@ -225,7 +225,7 @@ namespace RomManager
                                 // fallback for non-matched roms
                                 if (game.Title == null)
                                 {
-                                    game.Title = Path.GetFileName(game.FilePath);
+                                    game.Title = game.FileName;
                                     game.Description = "No information found.";
                                     game.FrontCoverUri = TryGetCachedImage(null, "FrontCover", 0).Item1;
                                     game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0).Item1;

@@ -80,6 +80,31 @@
                         <Label>
                             <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding Description}" />
                         </Label>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">File Name :</Label>
+                            <Label FontFamily="Consolas" Margin="0,2,0,0" Content="{Binding FileName}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">Release Date :</Label>
+                            <Label Content="{Binding ReleaseDate, TargetNullValue='Unknown'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">System :</Label>
+                            <Label Content="{Binding SystemName, TargetNullValue='Unknown'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">Developer :</Label>
+                            <Label Content="{Binding Developer, TargetNullValue='Unknown'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">Publisher :</Label>
+                            <Label Content="{Binding Publisher, TargetNullValue='Unknown'}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Label FontWeight="Bold">Genre :</Label>
+                            <Label Content="{Binding Genres, TargetNullValue='Unknown'}" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
