@@ -1,10 +1,13 @@
-﻿using System;
+﻿using AngleSharp;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data.SQLite;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -119,14 +122,33 @@ namespace RomManager
                 fileHashed.Set();
             });
 
-            var pathToDb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
+            var pathToOvgdb = $"{AppDomain.CurrentDomain.BaseDirectory}openvgdb.sqlite";
+
+            var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "RomManager");
+            if (!Directory.Exists(appData))
+                Directory.CreateDirectory(appData);
+            var pathToMobyscoreDb = Path.Combine(appData, "mobyscores.sqlite");
+
+            // create mobyscores db if not present
+            if (!File.Exists(pathToMobyscoreDb))
+            {
+                SQLiteConnection.CreateFile(pathToMobyscoreDb);
+                using (var connection = new SQLiteConnection($"Data Source={pathToMobyscoreDb}; Version=3;"))
+                using (var command = connection.CreateCommand())
+                {
+                    connection.Open();
+                    command.CommandText = "CREATE TABLE \"SCORES\" ( `releaseID` INTEGER, `mobyScore` REAL, PRIMARY KEY(`releaseID`) )";
+                    command.ExecuteNonQuery();
+                    connection.Close();
+                }
+            }
 
             // match roms in database
             bool allRomsMatched = false;
             var romMatched = new ManualResetEventSlim();
             Task.Run(() =>
             {
-                using (var connection = new SQLiteConnection($"Data Source={pathToDb}; Version=3;"))
+                using (var connection = new SQLiteConnection($"Data Source={pathToOvgdb}; Version=3;"))
                 {
                     connection.Open();
                     using (var command = connection.CreateCommand())
@@ -174,12 +196,16 @@ namespace RomManager
             var dispatcher = Dispatcher.CurrentDispatcher;
 
             // get metadata
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                using (var connection = new SQLiteConnection($"Data Source={pathToDb}; Version=3;"))
+                using (var ovgdbConnection = new SQLiteConnection($"Data Source={pathToOvgdb}; Version=3;"))
+                using (var mobyscoreConnection = new SQLiteConnection($"Data Source={pathToMobyscoreDb}; Version=3;"))
                 {
-                    connection.Open();
-                    using (var command = connection.CreateCommand())
+                    ovgdbConnection.Open();
+                    mobyscoreConnection.Open();
+
+                    using (var ovgdbCommand = ovgdbConnection.CreateCommand())
+                    using (var mobyscoreCommand = mobyscoreConnection.CreateCommand())
                     {
                         while (!allRomsMatched)
                         {
@@ -192,30 +218,31 @@ namespace RomManager
                             while (matchedRoms.TryDequeue(out pair))
                             {
                                 var game = new Game { FilePath = pair.Item1 };
+                                long? releaseId = null;
 
+                                // fetch metadata from ogvdb
                                 if (pair.Item2.HasValue)
                                 {
-                                    command.CommandText = $"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, releaseCoverBack, releaseDescription, releaseDeveloper, releasePublisher, releaseGenre, releaseDate FROM RELEASES WHERE romID = '{pair.Item2.Value}' LIMIT 1";
-                                    using (var reader = command.ExecuteReader())
+                                    ovgdbCommand.CommandText = $"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, releaseCoverBack, releaseDescription, releaseDeveloper, releaseGenre, releaseDate FROM RELEASES WHERE romID = '{pair.Item2.Value}' LIMIT 1";
+                                    using (var reader = ovgdbCommand.ExecuteReader())
                                     {
                                         if (reader.HasRows)
                                         {
                                             reader.Read();
 
-                                            var releaseId = reader.GetInt64(0);
+                                            releaseId = reader.GetInt64(0);
                                             game.Title = GetNullable<string>(reader.GetValue(1));
                                             game.SystemName = GetNullable<string>(reader.GetValue(2));
                                             game.Description = GetNullable<string>(reader.GetValue(5));
                                             game.Developer = GetNullable<string>(reader.GetValue(6));
-                                            game.Publisher = GetNullable<string>(reader.GetValue(7));
-                                            game.Genres = GetNullable<string>(reader.GetValue(8))?.Replace(",", ", ");
-                                            game.ReleaseDate = GetNullable<string>(reader.GetValue(9));
+                                            game.Genres = GetNullable<string>(reader.GetValue(7))?.Replace(",", ", ");
+                                            game.ReleaseDate = GetNullable<string>(reader.GetValue(8));
 
-                                            var frontCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId);
+                                            var frontCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", releaseId.Value);
                                             game.FrontCoverUri = frontCoverUris.Item1;
                                             game.FrontCoverCachePath = frontCoverUris.Item2;
 
-                                            var backCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId);
+                                            var backCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", releaseId.Value);
                                             game.BackCoverUri = backCoverUris.Item1;
                                             game.BackCoverCachePath = backCoverUris.Item2;
                                         }
@@ -223,7 +250,7 @@ namespace RomManager
                                 }
 
                                 // fallback for non-matched roms
-                                if (game.Title == null)
+                                if (!releaseId.HasValue)
                                 {
                                     game.Title = game.FileName;
                                     game.Description = "No information found.";
@@ -231,6 +258,22 @@ namespace RomManager
                                     game.BackCoverUri = TryGetCachedImage(null, "BackCover", 0).Item1;
                                 }
 
+                                // score info from MobyGames
+                                if (releaseId.HasValue)
+                                {
+                                    mobyscoreCommand.CommandText = $"SELECT mobyScore FROM SCORES WHERE releaseId = {releaseId.Value}";
+                                    var mobyscore = mobyscoreCommand.ExecuteScalar();
+                                    if (mobyscore != null)
+                                        game.MobyScore = (float) (double) mobyscore;
+                                    else
+                                    {
+                                        await GetScoreAsync(game);
+                                        mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore) VALUES ({releaseId.Value}, {game.MobyScore})";
+                                        mobyscoreCommand.ExecuteNonQuery();
+                                    }
+                                }
+
+                                // expand images on UI thread & add to list
                                 dispatcher.InvokeAsync(() =>
                                 {
                                     game.FrontCover = ExpandImage(game.FrontCoverUri, game.FrontCoverCachePath);
@@ -244,7 +287,8 @@ namespace RomManager
                             }
                         }
                     }
-                    connection.Close();
+                    ovgdbConnection.Close();
+                    mobyscoreConnection.Close();
 
                     analyzing = false;
                     PropertyChanged(this, new PropertyChangedEventArgs("AnalyzeStopCaption"));
@@ -254,7 +298,34 @@ namespace RomManager
 
         static T GetNullable<T>(object value) where T : class
         {
-            return value is DBNull ? null : (T) value;
+            return value is DBNull ? null : (T)value;
+        }
+
+        async Task GetScoreAsync(Game game)
+        {
+            var config = Configuration.Default.WithDefaultLoader();
+            var uriEscapedTitle = Uri.EscapeDataString(game.Title);
+            var platformId = game.MobyGamesPlatformId;
+            var searchPageUri = $"https://www.mobygames.com/search/quick?q={uriEscapedTitle}&p={platformId}&search=Go&sFilter=1&sG=on";
+            var document = await BrowsingContext.New(config).OpenAsync(searchPageUri);
+            var linkElement = document.QuerySelector("div.searchTitle a");
+
+            if (linkElement != null)
+            {
+                var gamePageUri = linkElement.GetAttribute("href");
+                var rankPageUri = $"{gamePageUri}/view-moby-score";
+                document = await BrowsingContext.New(config).OpenAsync(rankPageUri);
+                var scoreElement = document.QuerySelector("table.scoreWindow tr:last-child > td:nth-child(2)");
+                if (scoreElement != null)
+                {
+                    game.MobyScore = float.Parse(scoreElement.TextContent);
+                    Console.WriteLine($"'{game.Title}' : {game.MobyScore} / 5");
+                }
+                else
+                    Console.WriteLine($"No score found for '{game.Title}'");
+            }
+            else
+                Console.WriteLine($"No search result found for '{game.Title}'");
         }
 
         static Tuple<Uri, string> TryGetCachedImage(string url, string type, long releaseId)
