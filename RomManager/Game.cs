@@ -31,7 +31,7 @@ namespace RomManager
                     case "GCE Vectrex": return 37;
                     case "Intellivision": return 30;
                     case "NEC PC Engine/TurboGrafx-16": return 40;
-                    case "NEC PC ENgine/TurboGrafx-CD": return 45;
+                    case "NEC PC Engine/TurboGrafx-CD": return 45;
                     case "NEC PC-FX": return 59;
                     case "NEC SuperGrafx": return 127;
                     case "Nintendo Famicom Disk System": return 22;
