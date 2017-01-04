@@ -280,6 +280,8 @@ namespace RomManager
                                     game.BackCover = ExpandImage(game.BackCoverUri, game.BackCoverCachePath);
 
                                     Games.Add(game);
+                                    if (Games.Count == 1)
+                                        CurrentGame = Games[0];
                                 });
 
                                 if (cancelRequested)

@@ -1,5 +1,7 @@
 ﻿using Microsoft.WindowsAPICodePack.Dialogs;
 using System;
+using System.ComponentModel;
+using System.Linq;
 using System.Windows;
 
 namespace RomManager
@@ -40,6 +42,31 @@ namespace RomManager
         {
             var library = DataContext as GameLibrary;
             library.ToggleAnalyze();
+        }
+
+        void SortByRatingButton_Click(object sender, RoutedEventArgs e)
+        {
+            var direction = ListSortDirection.Ascending;
+            if (GamesList.Items.SortDescriptions.Any(x => x.PropertyName == "MobyScore"))
+            {
+                var lastDirection = GamesList.Items.SortDescriptions.First(x => x.PropertyName == "MobyScore").Direction;
+                direction = lastDirection == ListSortDirection.Ascending ? ListSortDirection.Descending : ListSortDirection.Ascending;
+            }
+
+            GamesList.Items.SortDescriptions.Clear();
+            GamesList.Items.SortDescriptions.Add(new SortDescription("MobyScore", direction));
+        }
+        void SortByNameButton_Click(object sender, RoutedEventArgs e)
+        {
+            var direction = ListSortDirection.Ascending;
+            if (GamesList.Items.SortDescriptions.Any(x => x.PropertyName == "Title"))
+            {
+                var lastDirection = GamesList.Items.SortDescriptions.First(x => x.PropertyName == "Title").Direction;
+                direction = lastDirection == ListSortDirection.Ascending ? ListSortDirection.Descending : ListSortDirection.Ascending;
+            }
+
+            GamesList.Items.SortDescriptions.Clear();
+            GamesList.Items.SortDescriptions.Add(new SortDescription("Title", direction));
         }
     }
 }
