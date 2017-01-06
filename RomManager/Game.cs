@@ -12,6 +12,8 @@ namespace RomManager
             get { return Path.GetFileName(FilePath); }
         }
 
+        public long? ReleaseId { get; set; }
+
         public int MobyGamesPlatformId
         {
             get
