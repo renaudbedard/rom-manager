@@ -208,7 +208,10 @@ namespace RomManager
                         // fetch metadata from ogvdb
                         if (matchedFile.RomId.HasValue)
                         {
-                            ovgdbCommand.CommandText = $"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, releaseCoverBack, releaseDescription, releaseDeveloper, releaseGenre, releaseDate FROM RELEASES WHERE romID = '{matchedFile.RomId}' LIMIT 1";
+                            ovgdbCommand.CommandText = $@"SELECT releaseId, releaseTitleName, TEMPsystemName, releaseCoverFront, 
+                                                          releaseCoverBack, releaseDescription, releaseDeveloper, releaseGenre, releaseDate 
+                                                          FROM RELEASES WHERE romID = '{matchedFile.RomId}' LIMIT 1";
+
                             using (var reader = ovgdbCommand.ExecuteReader())
                             {
                                 if (reader.HasRows)

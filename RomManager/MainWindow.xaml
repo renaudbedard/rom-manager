@@ -19,10 +19,6 @@
                            MaxWidth="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=DataContext.ThumbnailSize}" />
             </StackPanel>
         </DataTemplate>
-
-        <ControlTemplate x:Key="NoScroll">
-            <ItemsPresenter></ItemsPresenter>
-        </ControlTemplate>
     </Window.Resources>
 
     <Grid>
@@ -39,7 +35,7 @@
             <Button Name="AnalyzeStopButton" IsEnabled="{Binding HasFolderPath}" Content="{Binding AnalyzeStopCaption}"
                     Margin="5,7" Padding="10,0,10,0" Click="AnalyzeButton_Click" />
             <Slider x:Name="ThumbnailSizeSlider" Width="333" VerticalAlignment="Center" Margin="5,11,0,11" Maximum="256" 
-                    Minimum="8" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
+                    Minimum="64" SmallChange="1" Value="{Binding ThumbnailSize}" LargeChange="16" TickFrequency="16" />
             <Button Name="SortByRatingButton" IsEnabled="{Binding HasFolderPath}" Content="Sort By Rating" Margin="5,7" Padding="10,0,10,0" Click="SortByRatingButton_Click" />
             <Button Name="SortByNameButton" IsEnabled="{Binding HasFolderPath}" Content="Sort By Name" Margin="5,7" Padding="10,0,10,0" Click="SortByNameButton_Click" />
         </StackPanel>
@@ -54,11 +50,16 @@
                 </Grid.ColumnDefinitions>
                 
                 <ScrollViewer Grid.Column="0">
-                    <ListBox Name="GamesList" Template="{StaticResource NoScroll}"  ItemsSource="{Binding Games}" 
-                             SelectedItem="{Binding CurrentGame}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox Name="GamesList" ItemsSource="{Binding Games}" SelectedItem="{Binding CurrentGame}" 
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <Control.Template>
+                            <ControlTemplate>
+                                <ItemsPresenter></ItemsPresenter>
+                            </ControlTemplate>
+                        </Control.Template>
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal"/>
+                                <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                     </ListBox>
@@ -106,6 +107,19 @@
                         <StackPanel Orientation="Horizontal">
                             <Label FontWeight="Bold">MobyScore :</Label>
                             <Label Content="{Binding ScorePercentage}" />
+                            
+                            <ItemsControl ItemsSource="{Binding RatingStars}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Image Source="{Binding}" Width="32" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
                         </StackPanel>
                     </StackPanel>
                 </ScrollViewer>

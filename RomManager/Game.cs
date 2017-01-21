@@ -1,10 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace RomManager
 {
-    public class Game
+	public class Game
     {
         public string FilePath { get; set; }
         public string FileName
@@ -88,5 +90,22 @@ namespace RomManager
 
         public BitmapImage FrontCover { get; set; }
         public BitmapImage BackCover { get; set; }
+
+		// strongly type this so I can use it in different places using a datatype template
+        public IEnumerable<BitmapImage> RatingStars
+        {
+            get
+            {
+				for (int i = 0; i < Math.Floor(MobyScore); i++)
+				{
+					var image = new BitmapImage();
+					image.BeginInit();
+					image.UriSource = new Uri(Path.Combine($"{AppDomain.CurrentDomain.BaseDirectory}Icons", "filledstar.png"));
+					image.DecodePixelWidth = 32;
+					image.EndInit();
+					yield return image;
+				}
+            }
+        }
     }
 }
