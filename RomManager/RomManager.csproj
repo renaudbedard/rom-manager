@@ -113,6 +113,7 @@
     </Compile>
     <Compile Include="Game.cs" />
     <Compile Include="GameLibrary.cs" />
+    <Compile Include="SqliteHelper.cs" />
     <Compile Include="StringHelper.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>

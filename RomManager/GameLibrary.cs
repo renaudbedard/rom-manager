@@ -160,14 +160,14 @@ namespace RomManager
                 MaxDegreeOfParallelism = Environment.ProcessorCount,
                 CancellationToken = cancellationTokenSource.Token
             };
-			var singleThreadedDatablockOptions = new ExecutionDataflowBlockOptions
-			{
-				MaxDegreeOfParallelism = 1,
-				CancellationToken = cancellationTokenSource.Token
-			};
+            var singleThreadedDatablockOptions = new ExecutionDataflowBlockOptions
+            {
+                MaxDegreeOfParallelism = 1,
+                CancellationToken = cancellationTokenSource.Token
+            };
 
-			// file hashing block
-			var hashingBlock = new TransformBlock<string, HashedFile>(filePath =>
+            // file hashing block
+            var hashingBlock = new TransformBlock<string, HashedFile>(filePath =>
                 {
                     byte[] hash;
                     using (var sha1 = SHA1.Create())
@@ -179,7 +179,7 @@ namespace RomManager
 
                     return new HashedFile { FilePath = filePath, SHA1Hash = sb.ToString() };
                 },
-				parallelDatablockOptions);
+                parallelDatablockOptions);
 
             // rom matching block
             var matchingBlock = new TransformBlock<HashedFile, MatchedFile>(hashedFile =>
@@ -203,7 +203,7 @@ namespace RomManager
                         return new MatchedFile { FilePath = hashedFile.FilePath, RomId = null };
                     }
                 },
-				parallelDatablockOptions);
+                parallelDatablockOptions);
 
             // get metadata from OGVDB
             var localMetadataAndUiBlock = new TransformBlock<MatchedFile, Game>(matchedFile =>
@@ -267,7 +267,7 @@ namespace RomManager
                         return game;
                     };
                 },
-				parallelDatablockOptions);
+                parallelDatablockOptions);
 
             // get score info from MobyGames
             var scoreBlock = new ActionBlock<Game>(async game =>
@@ -277,38 +277,38 @@ namespace RomManager
 
                     using (var mobyscoreCommand = mobyscoreConnection.CreateCommand())
                     {
-						mobyscoreCommand.CommandText = $"SELECT mobyScore, numVotes FROM SCORES WHERE releaseId = {game.ReleaseId.Value}";
+                        mobyscoreCommand.CommandText = $"SELECT mobyScore, numVotes FROM SCORES WHERE releaseId = {game.ReleaseId.Value}";
 
-						bool foundValue = false;
-						using (var reader = mobyscoreCommand.ExecuteReader())
-						{
-							if (reader.HasRows)
-							{
-								reader.Read();
-								var maybeScore = SqliteHelper.GetNullableValue<double>(reader["mobyScore"]);
-								if (maybeScore.HasValue)
-								{
-									foundValue = true;
-									game.MobyScore = (float) maybeScore.Value;
-									game.VoteCount = (int) (SqliteHelper.GetNullableValue<long>(reader["numVotes"]) ?? 0);
-								}
-							}
-						}
+                        bool foundValue = false;
+                        using (var reader = mobyscoreCommand.ExecuteReader())
+                        {
+                            if (reader.HasRows)
+                            {
+                                reader.Read();
+                                var maybeScore = SqliteHelper.GetNullableValue<double>(reader["mobyScore"]);
+                                if (maybeScore.HasValue)
+                                {
+                                    foundValue = true;
+                                    game.MobyScore = (float) maybeScore.Value;
+                                    game.VoteCount = (int) (SqliteHelper.GetNullableValue<long>(reader["numVotes"]) ?? 0);
+                                }
+                            }
+                        }
 
-						if (!foundValue)
-						{
-							var foundMatch = await GetScoreAsync(game);
+                        if (!foundValue)
+                        {
+                            var foundMatch = await GetScoreAsync(game);
 
-							// don't write if score was not found
-							if (foundMatch)
-							{
-								mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore, numVotes) VALUES ({game.ReleaseId.Value}, {game.MobyScore}, {game.VoteCount})";
-								mobyscoreCommand.ExecuteNonQuery();
-							}
-						}
-					}
+                            // don't write if score was not found
+                            if (foundMatch)
+                            {
+                                mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore, numVotes) VALUES ({game.ReleaseId.Value}, {game.MobyScore}, {game.VoteCount})";
+                                mobyscoreCommand.ExecuteNonQuery();
+                            }
+                        }
+                    }
                 },
-				singleThreadedDatablockOptions);
+                singleThreadedDatablockOptions);
 
             // link data blocks
             var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
@@ -344,57 +344,57 @@ namespace RomManager
                 });
         }
 
-		public class MobyGamesResponse
-		{
-			public List<MobyGamesGame> Games { get; set; }
-		}
+        public class MobyGamesResponse
+        {
+            public List<MobyGamesGame> Games { get; set; }
+        }
 
-		public class MobyGamesGame
-		{
-			public string Title { get; set; }
-			public float MobyScore { get; set; }
-			public int NumVotes { get; set; }
-		}
+        public class MobyGamesGame
+        {
+            public string Title { get; set; }
+            public float MobyScore { get; set; }
+            public int NumVotes { get; set; }
+        }
 
-		DateTime lastRequestTimestamp;
+        DateTime lastRequestTimestamp;
         async Task<bool> GetScoreAsync(Game game)
         {
-			if ((DateTime.Now - lastRequestTimestamp).TotalSeconds < 1)
-			{
-				//Console.WriteLine($"Sleeping...");
-				Thread.Sleep(1000);
-			}
-			lastRequestTimestamp = DateTime.Now;
+            if ((DateTime.Now - lastRequestTimestamp).TotalSeconds < 1)
+            {
+                //Console.WriteLine($"Sleeping...");
+                Thread.Sleep(1000);
+            }
+            lastRequestTimestamp = DateTime.Now;
 
-			var client = new RestClient("https://api.mobygames.com/v1/");
-			client.Authenticator = new HttpBasicAuthenticator(ApiKeys.MobyGames, null);
+            var client = new RestClient("https://api.mobygames.com/v1/");
+            client.Authenticator = new HttpBasicAuthenticator(ApiKeys.MobyGames, null);
 
-			var request = new RestRequest("games", Method.GET);
-			request.AddParameter("platform", game.MobyGamesPlatformId);
-			request.AddParameter("title", game.Title);
+            var request = new RestRequest("games", Method.GET);
+            request.AddParameter("platform", game.MobyGamesPlatformId);
+            request.AddParameter("title", game.Title);
 
-			//Console.WriteLine($"Doing MobyGames request!");
-			var response = await client.ExecuteGetTaskAsync<MobyGamesResponse>(request);
+            //Console.WriteLine($"Doing MobyGames request!");
+            var response = await client.ExecuteGetTaskAsync<MobyGamesResponse>(request);
 
-			var gameMatch = response.Data.Games.OrderBy(x => StringHelper.LevenshteinDistance(x.Title, game.Title)).FirstOrDefault();
+            var gameMatch = response.Data.Games.OrderBy(x => StringHelper.LevenshteinDistance(x.Title, game.Title)).FirstOrDefault();
 
-			if (gameMatch != null)
-			{
-				game.MobyScore = gameMatch.MobyScore;
-				game.VoteCount = gameMatch.NumVotes;
+            if (gameMatch != null)
+            {
+                game.MobyScore = gameMatch.MobyScore;
+                game.VoteCount = gameMatch.NumVotes;
 
-				Console.WriteLine($"'{game.Title}' matched as '{gameMatch.Title}' : {game.MobyScore} / 5");
-			}
-			else
-			{
-				Console.WriteLine($"No search result found for '{game.Title}'");
-				if (response.ErrorException != null)
-					Console.WriteLine(response.ErrorException);
-				return false;
-			}
+                Console.WriteLine($"'{game.Title}' matched as '{gameMatch.Title}' : {game.MobyScore} / 5");
+            }
+            else
+            {
+                Console.WriteLine($"No search result found for '{game.Title}'");
+                if (response.ErrorException != null)
+                    Console.WriteLine(response.ErrorException);
+                return false;
+            }
 
-			return true;
-		}
+            return true;
+        }
 
         static Tuple<Uri, string> TryGetCachedImage(string url, string type, long releaseId)
         {
