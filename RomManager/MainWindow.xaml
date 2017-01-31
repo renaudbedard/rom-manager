@@ -107,7 +107,10 @@
                         <StackPanel Orientation="Horizontal">
                             <Label FontWeight="Bold">MobyScore :</Label>
                             <Label Content="{Binding ScorePercentage}" />
-                            
+                            <Label>(</Label>
+                            <Label Content="{Binding VoteCount}" />
+                            <Label>votes)</Label>
+
                             <ItemsControl ItemsSource="{Binding RatingStars}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>

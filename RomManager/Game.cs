@@ -78,7 +78,9 @@ namespace RomManager
         public string ReleaseDate { get; set; }
 
         public float MobyScore { get; set; }
-        public string ScorePercentage
+		public int VoteCount { get; set; }
+
+		public string ScorePercentage
         {
             get { return string.Format("{0:P0}", MobyScore / 5.0f); }
         }

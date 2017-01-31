@@ -1,4 +1,6 @@
 ﻿using AngleSharp;
+using RestSharp;
+using RestSharp.Authenticators;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -153,14 +155,19 @@ namespace RomManager
                 }
             }
 
-            var datablockOptions = new ExecutionDataflowBlockOptions
+            var parallelDatablockOptions = new ExecutionDataflowBlockOptions
             {
                 MaxDegreeOfParallelism = Environment.ProcessorCount,
                 CancellationToken = cancellationTokenSource.Token
             };
+			var singleThreadedDatablockOptions = new ExecutionDataflowBlockOptions
+			{
+				MaxDegreeOfParallelism = 1,
+				CancellationToken = cancellationTokenSource.Token
+			};
 
-            // file hashing block
-            var hashingBlock = new TransformBlock<string, HashedFile>(filePath =>
+			// file hashing block
+			var hashingBlock = new TransformBlock<string, HashedFile>(filePath =>
                 {
                     byte[] hash;
                     using (var sha1 = SHA1.Create())
@@ -171,8 +178,8 @@ namespace RomManager
                         sb.Append(b.ToString("X2"));
 
                     return new HashedFile { FilePath = filePath, SHA1Hash = sb.ToString() };
-                }, 
-                datablockOptions);
+                },
+				parallelDatablockOptions);
 
             // rom matching block
             var matchingBlock = new TransformBlock<HashedFile, MatchedFile>(hashedFile =>
@@ -196,7 +203,7 @@ namespace RomManager
                         return new MatchedFile { FilePath = hashedFile.FilePath, RomId = null };
                     }
                 },
-                datablockOptions);
+				parallelDatablockOptions);
 
             // get metadata from OGVDB
             var localMetadataAndUiBlock = new TransformBlock<MatchedFile, Game>(matchedFile =>
@@ -219,18 +226,18 @@ namespace RomManager
                                     reader.Read();
 
                                     game.ReleaseId = reader.GetInt64(0);
-                                    game.Title = GetNullable<string>(reader.GetValue(1));
-                                    game.SystemName = GetNullable<string>(reader.GetValue(2));
-                                    game.Description = GetNullable<string>(reader.GetValue(5));
-                                    game.Developer = GetNullable<string>(reader.GetValue(6));
-                                    game.Genres = GetNullable<string>(reader.GetValue(7))?.Replace(",", ", ");
-                                    game.ReleaseDate = GetNullable<string>(reader.GetValue(8));
+                                    game.Title = SqliteHelper.GetNullable<string>(reader.GetValue(1));
+                                    game.SystemName = SqliteHelper.GetNullable<string>(reader.GetValue(2));
+                                    game.Description = SqliteHelper.GetNullable<string>(reader.GetValue(5));
+                                    game.Developer = SqliteHelper.GetNullable<string>(reader.GetValue(6));
+                                    game.Genres = SqliteHelper.GetNullable<string>(reader.GetValue(7))?.Replace(",", ", ");
+                                    game.ReleaseDate = SqliteHelper.GetNullable<string>(reader.GetValue(8));
 
-                                    var frontCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(3)), "FrontCover", game.ReleaseId.Value);
+                                    var frontCoverUris = TryGetCachedImage(SqliteHelper.GetNullable<string>(reader.GetValue(3)), "FrontCover", game.ReleaseId.Value);
                                     game.FrontCoverUri = frontCoverUris.Item1;
                                     game.FrontCoverCachePath = frontCoverUris.Item2;
 
-                                    var backCoverUris = TryGetCachedImage(GetNullable<string>(reader.GetValue(4)), "BackCover", game.ReleaseId.Value);
+                                    var backCoverUris = TryGetCachedImage(SqliteHelper.GetNullable<string>(reader.GetValue(4)), "BackCover", game.ReleaseId.Value);
                                     game.BackCoverUri = backCoverUris.Item1;
                                     game.BackCoverCachePath = backCoverUris.Item2;
                                 }
@@ -260,7 +267,7 @@ namespace RomManager
                         return game;
                     };
                 },
-                datablockOptions);
+				parallelDatablockOptions);
 
             // get score info from MobyGames
             var scoreBlock = new ActionBlock<Game>(async game =>
@@ -270,19 +277,38 @@ namespace RomManager
 
                     using (var mobyscoreCommand = mobyscoreConnection.CreateCommand())
                     {
-                        mobyscoreCommand.CommandText = $"SELECT mobyScore FROM SCORES WHERE releaseId = {game.ReleaseId.Value}";
-                        var mobyscore = mobyscoreCommand.ExecuteScalar();
-                        if (mobyscore != null)
-                            game.MobyScore = (float)(double)mobyscore;
-                        else
-                        {
-                            await GetScoreAsync(game);
-                            mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore) VALUES ({game.ReleaseId.Value}, {game.MobyScore})";
-                            mobyscoreCommand.ExecuteNonQuery();
-                        }
-                    }
+						mobyscoreCommand.CommandText = $"SELECT mobyScore, numVotes FROM SCORES WHERE releaseId = {game.ReleaseId.Value}";
+
+						bool foundValue = false;
+						using (var reader = mobyscoreCommand.ExecuteReader())
+						{
+							if (reader.HasRows)
+							{
+								reader.Read();
+								var maybeScore = SqliteHelper.GetNullableValue<double>(reader["mobyScore"]);
+								if (maybeScore.HasValue)
+								{
+									foundValue = true;
+									game.MobyScore = (float) maybeScore.Value;
+									game.VoteCount = (int) (SqliteHelper.GetNullableValue<long>(reader["numVotes"]) ?? 0);
+								}
+							}
+						}
+
+						if (!foundValue)
+						{
+							var foundMatch = await GetScoreAsync(game);
+
+							// don't write if score was not found
+							if (foundMatch)
+							{
+								mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore, numVotes) VALUES ({game.ReleaseId.Value}, {game.MobyScore}, {game.VoteCount})";
+								mobyscoreCommand.ExecuteNonQuery();
+							}
+						}
+					}
                 },
-                datablockOptions);
+				singleThreadedDatablockOptions);
 
             // link data blocks
             var linkOptions = new DataflowLinkOptions { PropagateCompletion = true };
@@ -318,37 +344,57 @@ namespace RomManager
                 });
         }
 
-        static T GetNullable<T>(object value) where T : class
-        {
-            return value is DBNull ? null : (T)value;
-        }
+		public class MobyGamesResponse
+		{
+			public List<MobyGamesGame> Games { get; set; }
+		}
 
-        async Task GetScoreAsync(Game game)
-        {
-            var config = Configuration.Default.WithDefaultLoader();
-            var uriEscapedTitle = Uri.EscapeDataString(game.Title);
-            var platformId = game.MobyGamesPlatformId;
-            var searchPageUri = $"https://www.mobygames.com/search/quick?q={uriEscapedTitle}&p={platformId}&search=Go&sFilter=1&sG=on";
-            var document = await BrowsingContext.New(config).OpenAsync(searchPageUri);
-            var linkElement = document.QuerySelector("div.searchTitle a");
+		public class MobyGamesGame
+		{
+			public string Title { get; set; }
+			public float MobyScore { get; set; }
+			public int NumVotes { get; set; }
+		}
 
-            if (linkElement != null)
-            {
-                var gamePageUri = linkElement.GetAttribute("href");
-                var rankPageUri = $"{gamePageUri}/view-moby-score";
-                document = await BrowsingContext.New(config).OpenAsync(rankPageUri);
-                var scoreElement = document.QuerySelector("table.scoreWindow tr:last-child > td:nth-child(2)");
-                if (scoreElement != null)
-                {
-                    game.MobyScore = float.Parse(scoreElement.TextContent);
-                    Console.WriteLine($"'{game.Title}' : {game.MobyScore} / 5");
-                }
-                else
-                    Console.WriteLine($"No score found for '{game.Title}'");
-            }
-            else
-                Console.WriteLine($"No search result found for '{game.Title}'");
-        }
+		DateTime lastRequestTimestamp;
+        async Task<bool> GetScoreAsync(Game game)
+        {
+			if ((DateTime.Now - lastRequestTimestamp).TotalSeconds < 1)
+			{
+				//Console.WriteLine($"Sleeping...");
+				Thread.Sleep(1000);
+			}
+			lastRequestTimestamp = DateTime.Now;
+
+			var client = new RestClient("https://api.mobygames.com/v1/");
+			client.Authenticator = new HttpBasicAuthenticator(ApiKeys.MobyGames, null);
+
+			var request = new RestRequest("games", Method.GET);
+			request.AddParameter("platform", game.MobyGamesPlatformId);
+			request.AddParameter("title", game.Title);
+
+			//Console.WriteLine($"Doing MobyGames request!");
+			var response = await client.ExecuteGetTaskAsync<MobyGamesResponse>(request);
+
+			var gameMatch = response.Data.Games.OrderBy(x => StringHelper.LevenshteinDistance(x.Title, game.Title)).FirstOrDefault();
+
+			if (gameMatch != null)
+			{
+				game.MobyScore = gameMatch.MobyScore;
+				game.VoteCount = gameMatch.NumVotes;
+
+				Console.WriteLine($"'{game.Title}' matched as '{gameMatch.Title}' : {game.MobyScore} / 5");
+			}
+			else
+			{
+				Console.WriteLine($"No search result found for '{game.Title}'");
+				if (response.ErrorException != null)
+					Console.WriteLine(response.ErrorException);
+				return false;
+			}
+
+			return true;
+		}
 
         static Tuple<Uri, string> TryGetCachedImage(string url, string type, long releaseId)
         {
