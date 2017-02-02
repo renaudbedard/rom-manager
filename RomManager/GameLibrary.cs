@@ -1,6 +1,4 @@
-﻿using AngleSharp;
-using RestSharp;
-using RestSharp.Authenticators;
+﻿using RestSharp;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -24,6 +22,8 @@ namespace RomManager
         public event PropertyChangedEventHandler PropertyChanged;
 
         public ObservableCollection<Game> Games { get; private set; } = new ObservableCollection<Game>();
+
+		MobyGamesApi mobyGamesApi = new MobyGamesApi();
 
         Game currentGame;
         public Game CurrentGame
@@ -302,7 +302,7 @@ namespace RomManager
                             // don't write if score was not found
                             if (foundMatch)
                             {
-                                mobyscoreCommand.CommandText = $"INSERT INTO SCORES (releaseId, mobyScore, numVotes) VALUES ({game.ReleaseId.Value}, {game.MobyScore}, {game.VoteCount})";
+                                mobyscoreCommand.CommandText = $@"INSERT INTO SCORES (releaseId, mobyScore, numVotes) VALUES ({game.ReleaseId.Value}, {game.MobyScore}, {game.VoteCount})";
                                 mobyscoreCommand.ExecuteNonQuery();
                             }
                         }
@@ -344,28 +344,11 @@ namespace RomManager
                 });
         }
 
-        DateTime lastRequestTimestamp;
         async Task<bool> GetScoreAsync(Game game)
         {
-            if ((DateTime.Now - lastRequestTimestamp).TotalSeconds < 1)
-            {
-                //Console.WriteLine($"Sleeping...");
-                Thread.Sleep(1000);
-            }
-            lastRequestTimestamp = DateTime.Now;
-
-            var client = new RestClient("https://api.mobygames.com/v1/");
-            client.Authenticator = new HttpBasicAuthenticator(ApiKeys.MobyGames, null);
-
-            var request = new RestRequest("games", Method.GET);
-            request.AddParameter("platform", game.MobyGamesPlatformId);
-            request.AddParameter("title", game.Title);
+			var gameMatch = await mobyGamesApi.Match(game.MobyGamesPlatformId, game.Title);
 
             //Console.WriteLine($"Doing MobyGames request!");
-            var response = await client.ExecuteGetTaskAsync<MobyGamesResponse>(request);
-
-            var gameMatch = response.Data.Games.OrderBy(x => StringHelper.LevenshteinDistance(x.Title, game.Title)).FirstOrDefault();
-
             if (gameMatch != null)
             {
                 game.MobyScore = gameMatch.MobyScore;
@@ -376,8 +359,6 @@ namespace RomManager
             else
             {
                 Console.WriteLine($"No search result found for '{game.Title}'");
-                if (response.ErrorException != null)
-                    Console.WriteLine(response.ErrorException);
                 return false;
             }
 
