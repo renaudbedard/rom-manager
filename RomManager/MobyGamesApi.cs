@@ -39,25 +39,24 @@ namespace RomManager
 		{
 			var sinceLastRequest = DateTime.Now - lastRequest;
 			if (sinceLastRequest.TotalSeconds < RequestCooldown)
-				Thread.Sleep((int) ((RequestCooldown - sinceLastRequest.TotalSeconds) * 1000));
-
-			lastRequest = DateTime.Now;
+				Thread.Sleep((int) ((RequestCooldown - sinceLastRequest.TotalSeconds) * 1000) + 64);
 		}
 
 		public async Task GetGames(int platformId)
 		{
-			var request = new RestRequest("games", Method.GET);
-			request.AddParameter("platform", platformId);
-			request.AddParameter("format", "id");
-
 			IRestResponse<MGGamesResponse> response;
 			int offset = 0;
+
 			do
 			{
+				var request = new RestRequest("games", Method.GET);
+				request.AddParameter("platform", platformId);
+				request.AddParameter("format", "brief");
 				request.AddParameter("offset", offset);
 
 				CheckRequestFrequency();
 				response = await client.ExecuteGetTaskAsync<MGGamesResponse>(request);
+				lastRequest = DateTime.Now;
 
 				List<MGGame> platformGames;
 				if (!gamesPerPlatform.TryGetValue(platformId, out platformGames))
@@ -65,8 +64,12 @@ namespace RomManager
 
 				platformGames.AddRange(response.Data.Games);
 				offset += GamesPerRequest;
+
+				Console.WriteLine($"Added { response.Data.Games.Count } games to platform { platformId }...");
 			}
-			while (response.Data.Games.Count > 0);
+			while (response.Data.Games.Count == GamesPerRequest);
+
+			Console.WriteLine($"Done! Total of { gamesPerPlatform[platformId].Count } games.");
 		}
 
 		public async Task<MGGame> Match(int platformId, string title)
@@ -79,6 +82,9 @@ namespace RomManager
 				.Select((x, i) => new { Index = i, LD = StringHelper.LevenshteinDistance(title, x.Title) })
 				.OrderBy(x => x.LD)
 				.First().Index];
+
+			// TODO: if edit distance is too great, disregard entirely
+			// TODO: grab mobyscore for 100-batch of matches
 		}
 	}
 }
