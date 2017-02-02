@@ -344,18 +344,6 @@ namespace RomManager
                 });
         }
 
-        public class MobyGamesResponse
-        {
-            public List<MobyGamesGame> Games { get; set; }
-        }
-
-        public class MobyGamesGame
-        {
-            public string Title { get; set; }
-            public float MobyScore { get; set; }
-            public int NumVotes { get; set; }
-        }
-
         DateTime lastRequestTimestamp;
         async Task<bool> GetScoreAsync(Game game)
         {
